@@ -1,0 +1,24 @@
+{
+  "name": "teamboard",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:auth": "npm -w @teamboard/auth-service run dev",
+    "dev:tasks": "npm -w @teamboard/task-service run dev",
+    "dev:realtime": "npm -w @teamboard/realtime-service run dev",
+    "dev": "npm -ws run dev"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "@teamboard/auth-service": "*",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

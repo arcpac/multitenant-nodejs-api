@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: teamboard-postgres
+    environment:
+      POSTGRES_USER: teamboard
+      POSTGRES_PASSWORD: teamboard
+      POSTGRES_DB: teamboard
+    ports:
+      - "5433:5432"
+    volumes:
+      - teamboard_pg:/var/lib/postgresql/data
+
+volumes:
+  teamboard_pg:
