@@ -26,6 +26,3 @@ export function requireAuth(req: any, res: any, next: any) {
         return res.status(401).json({ code: "INVALID_TOKEN", error: "Invalid token" });
     }
 }
-
-
-// XBHwd_TKhrz7AjRNy7btvz1DJbeHOJum5FTYOYdPNzhvrVMuX-8Wwhvvm5FSijG-
