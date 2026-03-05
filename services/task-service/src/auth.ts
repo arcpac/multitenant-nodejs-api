@@ -8,10 +8,7 @@ export type AuthUser = {
 
 export function getAuthFromAuthorizationHeader(header: string | null): AuthUser {
     if (!header) throw new Error("Missing Authorization header");
-    console.log('getAuthFromAuthorizationHeader')
     const [type, token] = header.split(" ");
-    console.log('type: ', type)
-    console.log('token: ', token)
     if (type !== "Bearer" || !token) throw new Error("Missing Bearer token");
 
     const secret = process.env.ACCESS_TOKEN_SECRET!;

@@ -14,24 +14,29 @@ import { GraphQLError } from "graphql";
 
 const app = express();
 app.use(cors({ origin: true }));
+
 const yoga = createYoga({
   schema,
   cors: false,
   graphiql: process.env.NODE_ENV !== "production",
   context: async ({ request }) => {
-    console.log('HELLO')
     const auth = getAuthFromAuthorizationHeader(request.headers.get("authorization"));
 
-
     const m = await pool.query(
-      `select 1 from memberships where user_id = $1 and org_id = $2 limit 1`,
+      `select role
+       from memberships
+       where user_id = $1 and org_id = $2
+       limit 1`,
       [auth.sub, auth.orgId]
     );
+
     if (m.rowCount === 0) {
       throw new GraphQLError("Not a member of this org", {
         extensions: { code: "FORBIDDEN" },
       });
     }
+    const dbRole = m.rows[0].role;
+    auth.role = dbRole;
 
     const userById = new DataLoader<string, any | null>(async (ids) => {
       const r = await pool.query(
@@ -109,7 +114,8 @@ app.post("/tasks", async (req: any, res) => {
 });
 
 app.patch("/tasks/:id", async (req: any, res) => {
-  const { sub: userId, orgId, role } = req.auth;
+  const { sub: userId, orgId } = req.auth;
+  const role = req.member.role;
   const taskId = req.params.id;
 
   const parsed = updateTaskSchema.safeParse(req.body);
@@ -181,7 +187,9 @@ app.patch("/tasks/:id", async (req: any, res) => {
 });
 
 app.delete("/tasks/:id", async (req: any, res) => {
-  const { sub: userId, orgId, role } = req.auth;
+  const { sub: userId, orgId } = req.auth;
+  const role = req.member.role;
+
   const taskId = req.params.id;
 
   const existing = await pool.query(`select * from tasks where id = $1 and org_id = $2`, [taskId, orgId]);
