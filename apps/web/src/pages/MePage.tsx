@@ -5,7 +5,7 @@ const MePage = () => {
   const status = useAuthStore((s) => s.status);
   const refreshMe = useAuthStore((s) => s.refreshMe);
   const logout = useAuthStore((s) => s.logout);
-  debugger
+
   if (status === "loading") {
     return (
       <div className="min-h-screen grid place-items-center bg-zinc-950 text-zinc-100">

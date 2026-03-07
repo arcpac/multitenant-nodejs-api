@@ -30,7 +30,7 @@ app.get("/health", async (_req, res) => {
  * POST /auth/register
  * Creates:
  * - users row
- * - orgs row
+ * - org row (reuses existing org if name already exists)
  * - memberships row (OWNER)
  * - refresh_sessions row (stores refresh token hash)
  * Returns:
@@ -41,6 +41,7 @@ app.post("/auth/register", async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
     const { email, password, orgName, firstName, lastName } = parsed.data;
+    const normalizedOrgName = orgName.trim();
     const client = await pool.connect();
     try {
         await client.query("BEGIN");
@@ -53,12 +54,22 @@ app.post("/auth/register", async (req, res) => {
        RETURNING id, email, first_name, last_name`,
             [email.toLowerCase(), passwordHash, firstName ?? null, lastName ?? null]
         );
-
-
-        const orgResult = await client.query(
-            `INSERT INTO orgs (name) VALUES ($1) RETURNING id, name`,
-            [orgName]
+        let orgResult = await client.query(
+            `SELECT id, name
+             FROM orgs
+             WHERE name = $1
+             ORDER BY created_at ASC
+             LIMIT 1`,
+            [normalizedOrgName]
         );
+        if (orgResult.rowCount === 0) {
+            orgResult = await client.query(
+                `INSERT INTO orgs (name)
+                 VALUES ($1)
+                 RETURNING id, name`,
+                [normalizedOrgName]
+            );
+        }
 
         const user = userResult.rows[0];
         const org = orgResult.rows[0];
@@ -98,7 +109,10 @@ app.post("/auth/register", async (req, res) => {
         });
     } catch (e: any) {
         await client.query("ROLLBACK");
-        if (e?.code === "23505") return res.status(409).json({ error: "Email already exists" });
+        if (e?.code === "23505" && e?.constraint === "users_email_key") {
+            return res.status(409).json({ error: "Email already exists" });
+        }
+        if (e?.code === "23505") return res.status(409).json({ error: "Conflict" });
         console.error(e);
         return res.status(500).json({ error: "Server error" });
     } finally {
@@ -179,8 +193,7 @@ app.post("/auth/login", async (req, res) => {
 
 app.post("/auth/refresh", async (req, res) => {
     const refreshToken = req.cookies?.refresh_token;
-    console.log('cookies => ', req.cookies)
-    // 2ba2812757d0c54892eb1fe356105a684859a48d6b776197d079f34dcf2e30b7
+
     if (!refreshToken) return res.status(401).json({ code: "NO_REFRESH", error: "Missing refresh token" })
 
     const tokenHash = hashToken(refreshToken)
@@ -219,7 +232,7 @@ app.post("/auth/refresh", async (req, res) => {
 
     const accessToken = signAccessToken({ sub: user_id, orgId: org_id, role: memberRole });
 
-    res.cookie("refresh_token", newHashRefreshToken, refreshCookieOptions());
+    res.cookie("refresh_token", newRefreshToken, refreshCookieOptions());
     return res.json({ accessToken });
 })
 
