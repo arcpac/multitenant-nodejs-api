@@ -19,7 +19,6 @@ export function requireAuth(req: any, res: any, next: any) {
         req.auth = payload;
         return next();
     } catch (err: any) {
-        console.log('Err: ', err)
         if (err?.name === "TokenExpiredError") {
             return res.status(401).json({ code: "TOKEN_EXPIRED", error: "Access token expired" });
         }

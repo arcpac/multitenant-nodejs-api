@@ -12,7 +12,6 @@ export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
 
   useEffect(() => {
-    console.log('bootstrap useEffect')
     void bootstrap();
   }, [bootstrap]);
 

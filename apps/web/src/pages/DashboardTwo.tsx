@@ -1,16 +1,12 @@
 import { DarkModeSwitch } from 'react-toggle-dark-mode';
 import { useTheme } from "../theme/ThemeProvider";
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { gqlFetch } from '../lib/graphql';
-import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
 
 type DashboardTask = {
     id: string;
     status: string;
     title: string
-    priority: string;
-    dueDate: string | null;
 }
 
 type DashboardTeam = {
@@ -29,35 +25,43 @@ type DashboardData = {
     teams: DashboardTeam[];
 }
 
-const DASHBOARD_QUERY = `
-query Dashboard($teamId: ID) {
-  dashboard(filter: { teamId: $teamId }) {
-    counts { total todo doing done }
-    teams { id name }
-    tasks { id title status priority dueDate }
-  }
-}
-`;
-
-const Dashboard = () => {
+const DashboardTwo = () => {
     const { isDark, setIsDark } = useTheme();
+    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
 
-    const { data: dashboardData, isLoading, isFetching, error } = useQuery({
-        queryKey: ['dashboardData', { teamId: null }],
-        queryFn: async () => {
-            console.count('[Dashboard] queryFn executed');
-            console.log('[Dashboard] fetching dashboard data');
-            const data = await gqlFetch<{ dashboard: DashboardData }>(
-                DASHBOARD_QUERY,
-                { teamId: null }
-            );
-            return data.dashboard;
-        },
-        staleTime: 60_000, //staleTime does not survive a full page reload by itself,
-        gcTime: 300_000,
-    });
 
-    console.log('Dashboard data: ', dashboardData)
+    useEffect(() => {
+        let active = true;
+
+        const loadDashboard = async () => {
+            console.log('RUN => loadDashboard')
+            try {
+                const data = await gqlFetch<{ dashboard: DashboardData }>(
+                    `
+                    query Dashboard($teamId: ID) {
+                            dashboard(filter: { teamId: $teamId }) {
+                                counts { total todo doing done }
+                                teams { id name }
+                                tasks { id title status }
+                            }
+                            }
+                    `, { teamId: null }
+                )
+
+                if (active) setDashboardData(data.dashboard);
+
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        void loadDashboard();
+        return () => {
+            active = false
+        }
+    }, [])
+
+
     const totalCount = dashboardData?.counts.total ?? 0;
     const todoCount = dashboardData?.counts.todo ?? 0;
     const doingCount = dashboardData?.counts.doing ?? 0;
@@ -75,17 +79,6 @@ const Dashboard = () => {
                             <p className="mt-2 max-w-2xl text-sm">
                                 A quick snapshot of team execution for today.
                             </p>
-                            {isLoading && (
-                                <p className="mt-2 text-xs text-zinc-500">Loading dashboard data...</p>
-                            )}
-                            {!isLoading && isFetching && (
-                                <p className="mt-2 text-xs text-zinc-500">Refreshing data...</p>
-                            )}
-                            {error && (
-                                <p className="mt-2 text-xs text-rose-500">
-                                    Failed to load dashboard data.
-                                </p>
-                            )}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -101,25 +94,6 @@ const Dashboard = () => {
                                 size={20}
                                 className="rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
                             />
-                            <Link
-                                to="/me"
-                                aria-label="Open profile"
-                                title="Profile"
-                                className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
-                            >
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.8"
-                                    className="h-5 w-5"
-                                    aria-hidden="true"
-                                >
-                                    <circle cx="12" cy="8" r="3.5" />
-                                    <path d="M5 19a7 7 0 0 1 14 0" />
-                                </svg>
-                            </Link>
                         </div>
                     </div>
                 </section>
@@ -270,4 +244,4 @@ const Dashboard = () => {
     );
 };
 
-export default Dashboard;
+export default DashboardTwo;

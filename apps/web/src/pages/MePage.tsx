@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 
 const MePage = () => {
@@ -26,6 +27,7 @@ const MePage = () => {
           </div>
 
           <div className="flex gap-2">
+
             <button
               onClick={async () => {
                 try {
@@ -38,6 +40,25 @@ const MePage = () => {
             >
               Refresh
             </button>
+            <Link
+              to="/dashboard"
+              aria-label="Open profile"
+              title="Profile"
+              className="inline-flex items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900 p-2 text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                className="h-5 w-5"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="8" r="3.5" />
+                <path d="M5 19a7 7 0 0 1 14 0" />
+              </svg>
+            </Link>
 
             <button
               onClick={() => logout()}

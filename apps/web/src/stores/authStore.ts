@@ -25,7 +25,6 @@ export const useAuthStore = create<AuthState>((set) => ({
   me: null,
 
   bootstrap: async () => {
-    console.log('bootstrapInFlight: ', bootstrapInFlight)
     if (bootstrapInFlight) return bootstrapInFlight;
 
     bootstrapInFlight = (async () => {

@@ -1,7 +1,7 @@
 import { createSchema } from "graphql-yoga";
 import { GraphQLError } from "graphql";
 import DataLoader from "dataloader";
-import { DateTimeResolver, DateTimeTypeDefinition } from "graphql-scalars";
+import { DateResolver, DateTimeResolver, DateTimeTypeDefinition, DateTypeDefinition } from "graphql-scalars";
 import { pool } from "../db.js";
 
 type GqlContext = {
@@ -13,10 +13,12 @@ type GqlContext = {
 };
 
 const typeDefs = `
+  ${DateTypeDefinition}
   ${DateTimeTypeDefinition}
 
   enum TaskVisibility { TEAM_ONLY ORG_VISIBLE PRIVATE }
   enum TaskStatus { TODO DOING DONE }
+  enum Priority { LOW MEDIUM HIGH URGENT }
 
   input TaskFilter {
     teamId: ID
@@ -43,6 +45,8 @@ const typeDefs = `
     description: String
     status: TaskStatus!
     visibility: TaskVisibility!
+    priority: Priority!
+    dueDate: Date
     createdAt: DateTime!
     updatedAt: DateTime!
 
@@ -164,6 +168,8 @@ function buildVisibleTasksSql(opts: {
         t.visibility,
         t.team_id,
         t.assigned_to_user_id,
+        t.priority,
+        t.due_date as "dueDate",
         t.created_at,
         t.updated_at
       from tasks t
@@ -178,8 +184,8 @@ export const schema = createSchema<GqlContext>({
     typeDefs: [typeDefs],
     resolvers: [
         {
+            Date: DateResolver,
             DateTime: DateTimeResolver,
-
             Task: {
                 assignee: (task: any, _args: any, ctx: GqlContext) => {
                     if (!task.assigned_to_user_id) return null;

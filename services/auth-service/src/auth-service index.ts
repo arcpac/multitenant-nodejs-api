@@ -179,7 +179,6 @@ app.post("/auth/login", async (req, res) => {
 
 app.post("/auth/refresh", async (req, res) => {
     const refreshToken = req.cookies?.refresh_token;
-    console.log('cookies => ', req.cookies)
     // 2ba2812757d0c54892eb1fe356105a684859a48d6b776197d079f34dcf2e30b7
     if (!refreshToken) return res.status(401).json({ code: "NO_REFRESH", error: "Missing refresh token" })
 

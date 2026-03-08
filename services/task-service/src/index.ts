@@ -59,6 +59,8 @@ const yoga = createYoga({
       const map = new Map(r.rows.map((t: any) => [t.id, t]));
       return ids.map((id) => map.get(id) ?? null);
     });
+    console.log('userById: ', userById)
+    console.log('teamById: ', teamById)
 
     return { auth, loaders: { userById, teamById } };
   },

@@ -62,7 +62,6 @@ const RegisterPage = () => {
                     lastName: lastName.trim() || undefined,
                 }),
             });
-            console.log('data from auth/register: ', data)
             setAccessToken(data.accessToken);
             await refreshMe();
         } catch (e) {
