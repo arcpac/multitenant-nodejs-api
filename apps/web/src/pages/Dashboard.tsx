@@ -145,16 +145,14 @@ const Dashboard = () => {
                     <article className="rounded-2xl border border-zinc-800 bg-white dark:bg-zinc-900/70 p-5">
                         <h2 className="text-base font-semibold">Status Breakdown</h2>
                         <div className="mt-4 space-y-3 text-sm">
-                            <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-                                <span className="text-zinc-300">TODO</span>
-                                <span className="font-medium text-zinc-100">10 tasks</span>
+                            <div className="flex items-center justify-between rounded-lg border border-zinc-800 text-white bg-[#10162f] px-3 py-2">
+                                <span>TODO</span>
+                                <span className="font-medium 0">10 tasks</span>
                             </div>
-                            <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-                                <span className="text-zinc-300">DOING</span>
+                            <div className="flex items-center justify-between rounded-lg border border-zinc-800 text-white bg-[#10162f] px-3 py-2">                                <span >DOING</span>
                                 <span className="font-medium text-zinc-100">8 tasks</span>
                             </div>
-                            <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-                                <span className="text-zinc-300">DONE</span>
+                            <div className="flex items-center justify-between rounded-lg border border-zinc-800 text-white bg-[#10162f] px-3 py-2">                                <span>DONE</span>
                                 <span className="font-medium text-zinc-100">6 tasks</span>
                             </div>
                         </div>
@@ -163,16 +161,16 @@ const Dashboard = () => {
                     <article className="rounded-2xl border border-zinc-800 bg-white dark:bg-zinc-900/70 p-5">
                         <h2 className="text-base font-semibold">Recent Activity</h2>
                         <div className="mt-4 space-y-3">
-                            <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-                                <p className="text-sm text-zinc-200">Morgan moved "API retries" to DONE</p>
+                            <div className="rounded-lg border border-zinc-800 text-white bg-[#10162f] px-3 py-2">
+                                <p className="text-sm">Morgan moved "API retries" to DONE</p>
                                 <p className="mt-1 text-xs text-zinc-500">10 minutes ago</p>
                             </div>
-                            <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-                                <p className="text-sm text-zinc-200">Avery created "Scope user exports"</p>
+                            <div className="rounded-lg border border-zinc-800 text-white bg-[#10162f] px-3 py-2">
+                                <p className="text-sm">Avery created "Scope user exports"</p>
                                 <p className="mt-1 text-xs text-zinc-500">32 minutes ago</p>
                             </div>
-                            <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 px-3 py-2">
-                                <p className="text-sm text-zinc-200">Jordan commented on "SSO onboarding"</p>
+                            <div className="rounded-lg border border-zinc-800 text-white bg-[#10162f] px-3 py-2">
+                                <p className="text-sm">Jordan commented on "SSO onboarding"</p>
                                 <p className="mt-1 text-xs text-zinc-500">1 hour ago</p>
                             </div>
                         </div>
