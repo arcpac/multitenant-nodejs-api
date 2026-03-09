@@ -3,7 +3,6 @@ import { useTheme } from "../theme/ThemeProvider";
 import { useQuery } from '@tanstack/react-query';
 import { gqlFetch } from '../lib/graphql';
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
 
 type DashboardTask = {
     id: string;
@@ -41,12 +40,10 @@ query Dashboard($teamId: ID) {
 
 const Dashboard = () => {
     const { isDark, setIsDark } = useTheme();
-
     const { data: dashboardData, isLoading, isFetching, error } = useQuery({
         queryKey: ['dashboardData', { teamId: null }],
         queryFn: async () => {
             console.count('[Dashboard] queryFn executed');
-            console.log('[Dashboard] fetching dashboard data');
             const data = await gqlFetch<{ dashboard: DashboardData }>(
                 DASHBOARD_QUERY,
                 { teamId: null }
@@ -57,7 +54,7 @@ const Dashboard = () => {
         gcTime: 300_000,
     });
 
-    console.log('Dashboard data: ', dashboardData)
+
     const totalCount = dashboardData?.counts.total ?? 0;
     const todoCount = dashboardData?.counts.todo ?? 0;
     const doingCount = dashboardData?.counts.doing ?? 0;

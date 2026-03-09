@@ -38,6 +38,7 @@ export async function apiFetch<T = Json>(
     init: RequestInit = {},
     retry = true
 ): Promise<T> {
+    console.log('run apiFetch: ')
     const headers = new Headers(init.headers);
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
     headers.set("Content-Type", "application/json");

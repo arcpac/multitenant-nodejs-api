@@ -7,7 +7,6 @@ import { useAuthStore } from "./stores/authStore";
 import { useEffect } from "react";
 import Dashboard from "./pages/Dashboard";
 
-
 export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
 

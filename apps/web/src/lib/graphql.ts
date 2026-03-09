@@ -12,7 +12,6 @@ export async function gqlFetch<T, V = Record<string, unknown>>(
     variables?: V
 ): Promise<T> {
     // Debug-only: simulate slow network/large payload responses.
-    console.log('run gql')
     if (DEBUG_GRAPHQL_DELAY_MS > 0) {
         await sleep(DEBUG_GRAPHQL_DELAY_MS);
     }

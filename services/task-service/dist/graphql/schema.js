@@ -1,17 +1,7 @@
 import { createSchema } from "graphql-yoga";
 import { GraphQLError } from "graphql";
-import DataLoader from "dataloader";
 import { DateResolver, DateTimeResolver, DateTimeTypeDefinition, DateTypeDefinition } from "graphql-scalars";
 import { pool } from "../db.js";
-
-type GqlContext = {
-    auth: { sub: string; orgId: string; role: string };
-    loaders: {
-        userById: DataLoader<string, any | null>;
-        teamById: DataLoader<string, any | null>;
-    };
-};
-
 const typeDefs = `
   ${DateTypeDefinition}
   ${DateTimeTypeDefinition}
@@ -96,42 +86,32 @@ const typeDefs = `
     teams: [Team!]!
   }
 `;
-
-function makeCounts(rows: Array<{ status: string; count: number }>) {
+function makeCounts(rows) {
     const counts = { total: 0, todo: 0, doing: 0, done: 0 };
     for (const r of rows) {
         counts.total += Number(r.count);
-        if (r.status === "TODO") counts.todo = Number(r.count);
-        if (r.status === "DOING") counts.doing = Number(r.count);
-        if (r.status === "DONE") counts.done = Number(r.count);
+        if (r.status === "TODO")
+            counts.todo = Number(r.count);
+        if (r.status === "DOING")
+            counts.doing = Number(r.count);
+        if (r.status === "DONE")
+            counts.done = Number(r.count);
     }
     return counts;
 }
-
-async function ensureMembership(userId: string, orgId: string) {
-    const r = await pool.query(
-        `select 1 from memberships where user_id = $1 and org_id = $2 limit 1`,
-        [userId, orgId]
-    );
+async function ensureMembership(userId, orgId) {
+    const r = await pool.query(`select 1 from memberships where user_id = $1 and org_id = $2 limit 1`, [userId, orgId]);
     if (r.rowCount === 0) {
         throw new GraphQLError("Not a member of this org", {
             extensions: { code: "FORBIDDEN" },
         });
     }
 }
-
-function buildVisibleTasksSql(opts: {
-    orgId: string;
-    userId: string;
-    filter?: { teamId?: string | null; status?: string | null; mine?: boolean | null };
-    forCounts?: boolean;
-}) {
+function buildVisibleTasksSql(opts) {
     const { orgId, userId } = opts;
     const filter = opts.filter ?? {};
-
-    const params: any[] = [orgId, userId];
+    const params = [orgId, userId];
     let i = 2;
-
     let where = `
     t.org_id = $1
     and (
@@ -153,21 +133,17 @@ function buildVisibleTasksSql(opts: {
       )
     )
   `;
-
     if (filter.mine) {
         where += ` and (t.created_by = $2 or t.assigned_to_user_id = $2)`;
     }
-
     if (filter.teamId) {
         params.push(filter.teamId);
         where += ` and t.team_id = $${++i}`;
     }
-
     if (filter.status) {
         params.push(filter.status);
         where += ` and t.status = $${++i}`;
     }
-
     if (opts.forCounts) {
         return {
             sql: `
@@ -179,7 +155,6 @@ function buildVisibleTasksSql(opts: {
             params,
         };
     }
-
     return {
         sql: `
       select
@@ -201,38 +176,34 @@ function buildVisibleTasksSql(opts: {
         params,
     };
 }
-
-export const schema = createSchema<GqlContext>({
+export const schema = createSchema({
     typeDefs: [typeDefs],
     resolvers: [
         {
             Date: DateResolver,
             DateTime: DateTimeResolver,
             Task: {
-                assignee: (task: any, _args: any, ctx: GqlContext) => {
-                    if (!task.assigned_to_user_id) return null;
+                assignee: (task, _args, ctx) => {
+                    if (!task.assigned_to_user_id)
+                        return null;
                     return ctx.loaders.userById.load(task.assigned_to_user_id);
                 },
-                team: (task: any, _args: any, ctx: GqlContext) => {
-                    if (!task.team_id) return null;
+                team: (task, _args, ctx) => {
+                    if (!task.team_id)
+                        return null;
                     return ctx.loaders.teamById.load(task.team_id);
                 },
-                createdAt: (t: any) => t.created_at,
-                updatedAt: (t: any) => t.updated_at,
+                createdAt: (t) => t.created_at,
+                updatedAt: (t) => t.updated_at,
             },
-
             Query: {
-                me: async (_: any, _args: any, ctx: GqlContext) => {
+                me: async (_, _args, ctx) => {
                     const [userR, membersR, orgR] = await Promise.all([
-                        pool.query(
-                            `select id, email, first_name as "firstName", last_name as "lastName"
+                        pool.query(`select id, email, first_name as "firstName", last_name as "lastName"
                              from users
                              where id = $1
-                             limit 1`,
-                            [ctx.auth.sub]
-                        ),
-                        pool.query(
-                            `
+                             limit 1`, [ctx.auth.sub]),
+                        pool.query(`
                               select
                                 u.id,
                                 u.email,
@@ -249,18 +220,12 @@ export const schema = createSchema<GqlContext>({
                                 u.last_name asc nulls last,
                                 u.first_name asc nulls last,
                                 u.email asc
-                            `,
-                            [ctx.auth.orgId]
-                        ),
-                        pool.query(
-                            `select id, name
+                            `, [ctx.auth.orgId]),
+                        pool.query(`select id, name
                              from orgs
                              where id = $1
-                             limit 1`,
-                            [ctx.auth.orgId]
-                        ),
+                             limit 1`, [ctx.auth.orgId]),
                     ]);
-
                     if (userR.rowCount === 0) {
                         throw new GraphQLError("User not found", {
                             extensions: { code: "NOT_FOUND" },
@@ -271,7 +236,6 @@ export const schema = createSchema<GqlContext>({
                             extensions: { code: "NOT_FOUND" },
                         });
                     }
-
                     return {
                         user: userR.rows[0],
                         activeOrg: { id: ctx.auth.orgId, name: orgR.rows[0].name },
@@ -279,16 +243,11 @@ export const schema = createSchema<GqlContext>({
                         members: membersR.rows,
                     };
                 },
-
-                teams: async (_: any, _args: any, ctx: GqlContext) => {
-                    const r = await pool.query(
-                        `select id, name from teams where org_id = $1 order by name asc`,
-                        [ctx.auth.orgId]
-                    );
+                teams: async (_, _args, ctx) => {
+                    const r = await pool.query(`select id, name from teams where org_id = $1 order by name asc`, [ctx.auth.orgId]);
                     return r.rows;
                 },
-
-                tasks: async (_: any, args: any, ctx: GqlContext) => {
+                tasks: async (_, args, ctx) => {
                     const { sql, params } = buildVisibleTasksSql({
                         orgId: ctx.auth.orgId,
                         userId: ctx.auth.sub,
@@ -297,8 +256,7 @@ export const schema = createSchema<GqlContext>({
                     const r = await pool.query(sql, params);
                     return r.rows;
                 },
-
-                taskCounts: async (_: any, args: any, ctx: GqlContext) => {
+                taskCounts: async (_, args, ctx) => {
                     const { sql, params } = buildVisibleTasksSql({
                         orgId: ctx.auth.orgId,
                         userId: ctx.auth.sub,
@@ -308,45 +266,30 @@ export const schema = createSchema<GqlContext>({
                     const r = await pool.query(sql, params);
                     return makeCounts(r.rows);
                 },
-
-                dashboard: async (_: any, args: any, ctx: GqlContext) => {
+                dashboard: async (_, args, ctx) => {
                     const filter = args.filter ?? {};
-
-                    const teamsQ = pool.query(
-                        `select id, name from teams where org_id = $1 order by name asc`,
-                        [ctx.auth.orgId]
-                    );
-
-                    const tasksQ = pool.query(
-                        buildVisibleTasksSql({
-                            orgId: ctx.auth.orgId,
-                            userId: ctx.auth.sub,
-                            filter,
-                        }).sql,
-                        buildVisibleTasksSql({
-                            orgId: ctx.auth.orgId,
-                            userId: ctx.auth.sub,
-                            filter,
-                        }).params
-                    );
-
-                    const countsQ = pool.query(
-                        buildVisibleTasksSql({
-                            orgId: ctx.auth.orgId,
-                            userId: ctx.auth.sub,
-                            filter,
-                            forCounts: true,
-                        }).sql,
-                        buildVisibleTasksSql({
-                            orgId: ctx.auth.orgId,
-                            userId: ctx.auth.sub,
-                            filter,
-                            forCounts: true,
-                        }).params
-                    );
-
+                    const teamsQ = pool.query(`select id, name from teams where org_id = $1 order by name asc`, [ctx.auth.orgId]);
+                    const tasksQ = pool.query(buildVisibleTasksSql({
+                        orgId: ctx.auth.orgId,
+                        userId: ctx.auth.sub,
+                        filter,
+                    }).sql, buildVisibleTasksSql({
+                        orgId: ctx.auth.orgId,
+                        userId: ctx.auth.sub,
+                        filter,
+                    }).params);
+                    const countsQ = pool.query(buildVisibleTasksSql({
+                        orgId: ctx.auth.orgId,
+                        userId: ctx.auth.sub,
+                        filter,
+                        forCounts: true,
+                    }).sql, buildVisibleTasksSql({
+                        orgId: ctx.auth.orgId,
+                        userId: ctx.auth.sub,
+                        filter,
+                        forCounts: true,
+                    }).params);
                     const [teamsR, tasksR, countsR] = await Promise.all([teamsQ, tasksQ, countsQ]);
-
                     return {
                         teams: teamsR.rows,
                         tasks: tasksR.rows,

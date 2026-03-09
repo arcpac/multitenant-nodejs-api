@@ -3,8 +3,16 @@ import { apiFetch, refreshAccessToken, setAccessToken } from "../lib/api";
 
 type MeResponse = {
   user: { id: string; email: string; first_name: string; last_name: string };
-  activeOrg: { id: string } | {};
+  activeOrg: { id: string; name?: string } | {};
   role: string;
+  members?: Array<{
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: string;
+    orgName: string;
+  }>;
 };
 
 type AuthStatus = "loading" | "guest" | "authed";

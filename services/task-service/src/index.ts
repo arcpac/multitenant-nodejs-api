@@ -77,6 +77,32 @@ app.get("/health", async (_req, res) => {
 
 app.use(requireAuth, requireMembership);
 
+app.get("/members", async (req: any, res) => {
+  const { orgId } = req.auth;
+
+  const r = await pool.query(
+    `
+      select
+        u.id,
+        u.email,
+        u.first_name as "firstName",
+        u.last_name as "lastName",
+        m.role
+      from memberships m
+      join users u on u.id = m.user_id
+      where m.org_id = $1
+      order by
+        case when u.last_name is null or u.last_name = '' then 1 else 0 end,
+        u.last_name asc nulls last,
+        u.first_name asc nulls last,
+        u.email asc
+    `,
+    [orgId]
+  );
+
+  res.json({ members: r.rows });
+});
+
 
 app.post("/tasks", async (req: any, res) => {
   const { sub: userId, orgId } = req.auth;
