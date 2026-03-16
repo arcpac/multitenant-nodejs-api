@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { apiFetch, refreshAccessToken, setAccessToken } from "../lib/api";
+import { apiFetch, logoutSession, refreshAccessToken, setAccessToken } from "../lib/api";
 
 type MeResponse = {
   user: { id: string; email: string; first_name: string; last_name: string };
@@ -22,7 +22,7 @@ type AuthState = {
   me: MeResponse | null;
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 };
 
@@ -74,10 +74,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ status: "authed", me });
   },
 
-  logout: () => {
-    // clears only access token (server-side logout endpoint can come later)
-    setAccessToken(null);
-    set({ status: "guest", me: null });
+  logout: async () => {
+    try {
+      await logoutSession();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAccessToken(null);
+      set({ status: "guest", me: null });
+    }
   },
 
   refreshMe: async () => {

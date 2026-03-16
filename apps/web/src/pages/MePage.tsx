@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import { useMe } from "../hooks/useMe";
 
@@ -19,6 +20,8 @@ function initialFromName(firstName: string | null, lastName: string | null, emai
 const MePage = () => {
   const { data: me, isLoading, isFetching, error, refetch } = useMe();
   const logout = useAuthStore((s) => s.logout);
+  const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const members = me?.members ?? [];
   const owners = members.filter((m) => m.role === "OWNER").length;
   const admins = members.filter((m) => m.role === "ADMIN").length;
@@ -36,7 +39,6 @@ const MePage = () => {
       </div>
     );
   }
-
   if (error && !me) {
     return (
       <div className="min-h-screen grid place-items-center bg-amber-50 px-4 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
@@ -103,10 +105,16 @@ const MePage = () => {
                 </svg>
               </Link>
               <button
-                onClick={() => logout()}
+                onClick={async () => {
+                  if (isLoggingOut) return;
+                  setIsLoggingOut(true);
+                  await logout();
+                  navigate("/login", { replace: true });
+                }}
+                disabled={isLoggingOut}
                 className="rounded-lg bg-zinc-100 px-3 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-white"
               >
-                Logout
+                {isLoggingOut ? "Logging out..." : "Logout"}
               </button>
             </div>
           </div>

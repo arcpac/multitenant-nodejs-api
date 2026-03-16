@@ -3,6 +3,19 @@ type Json = Record<string, any>;
 let accessToken: string | null = null;
 let refreshInFlight: Promise<string | null> | null = null;
 
+const rawAuthBaseUrl =
+    (import.meta.env as Record<string, string | undefined>).VITE_AUTH_BASE_URL ?? "";
+const authBaseUrl = rawAuthBaseUrl.replace(/\/+$/, "");
+
+function toAuthServiceUrl(input: string): string {
+    if (!authBaseUrl) return input;
+    if (/^https?:\/\//i.test(input)) return input;
+    if (input.startsWith("/auth/") || input === "/auth") return `${authBaseUrl}${input}`;
+    if (input.startsWith("/api/")) return `${authBaseUrl}${input.replace(/^\/api/, "")}`;
+    if (input === "/api") return authBaseUrl;
+    return input;
+}
+
 export function setAccessToken(token: string | null) {
     accessToken = token;
 }
@@ -11,7 +24,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     if (refreshInFlight) return refreshInFlight;
 
     refreshInFlight = (async () => {
-        const res = await fetch("/auth/refresh", {
+        const res = await fetch(toAuthServiceUrl("/auth/refresh"), {
             method: "POST",
             credentials: "include",
         });
@@ -19,7 +32,6 @@ export async function refreshAccessToken(): Promise<string | null> {
         if (!res.ok) return null;
 
         const data = (await res.json()) as { accessToken?: string };
-        console.log('data.accessToken: ', data.accessToken)
         if (!data.accessToken) return null;
 
         setAccessToken(data.accessToken);
@@ -33,17 +45,25 @@ export async function refreshAccessToken(): Promise<string | null> {
     }
 }
 
+export async function logoutSession(): Promise<void> {
+    const requestInput = toAuthServiceUrl("/auth/logout");
+    await fetch(requestInput, {
+        method: "POST",
+        credentials: "include",
+    });
+}
+
 export async function apiFetch<T = Json>(
     input: RequestInfo,
     init: RequestInit = {},
     retry = true
 ): Promise<T> {
-    console.log('run apiFetch: ')
     const headers = new Headers(init.headers);
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
     headers.set("Content-Type", "application/json");
 
-    const res = await fetch(input, {
+    const requestInput = typeof input === "string" ? toAuthServiceUrl(input) : input;
+    const res = await fetch(requestInput, {
         ...init,
         headers,
         credentials: "include",
@@ -60,7 +80,7 @@ export async function apiFetch<T = Json>(
         try {
             errBody = await res.json();
         } catch { }
-        throw new Error(errBody?.message || `Request failed: ${res.status}`);
+        throw new Error(errBody?.message || errBody?.error || `Request failed: ${res.status}`);
     }
 
     return (await res.json()) as T;

@@ -6,6 +6,7 @@ import RegisterPage from "./pages/RegisterPage";
 import { useAuthStore } from "./stores/authStore";
 import { useEffect } from "react";
 import Dashboard from "./pages/Dashboard";
+import Board from "./pages/Board";
 
 export default function App() {
   const bootstrap = useAuthStore((s) => s.bootstrap);
@@ -23,8 +24,9 @@ export default function App() {
 
       {/* Protected routes */}
       <Route element={<RequireAuth />}>
-        <Route path="/me" element={<MePage />} />
         <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/board" element={<Board />} />
+        <Route path="/me" element={<MePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/me" replace />} />
