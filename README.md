@@ -42,13 +42,18 @@ GraphQL API:
 - `POST /graphql`
   I use a single GraphQL endpoint, `POST /graphql`, because GraphQL exposes a schema rather than a separate REST URL for every resource or use case. Check this: [A Practical Hybrid API: REST + GraphQL in Node Microservices](https://antonraphaelcaballes.medium.com/a-practical-hybrid-api-split-rest-graphql-in-node-microservices-trello-like-task-dashboard-684d1e993eaf)
 
-Current GraphQL queries:
+## Fixing Stale Roles in JWTs: “DB-Backed Authorization” for Multi-Tenant APIs
 
-- `me` (protected)
-- `dashboard(filter: TaskFilter)`
-- `tasks(filter: TaskFilter)`
-- `taskCounts(filter: TaskFilter)`
-- `teams`
+One important improvement in this project is that we do **not rely only on the role stored inside the JWT** for authorization decisions.
+
+For example, a user could be downgraded from `ADMIN` to `MEMBER`, removed from an organization, or switched to a different tenant after the token was issued. If the API trusted the JWT role alone, that user could keep outdated permissions until the token expired.
+
+To avoid that, this project uses a **DB-backed authorization** approach:
+
+- the JWT is still used to authenticate the user identity (`sub`) and active organization (`orgId`)
+- on each protected request, the API checks the `memberships` table again
+- the current role for that user in that organization is loaded from the database
+- authorization decisions are made using the fresh database role, not only the token payload
 
 ---
 
