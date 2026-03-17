@@ -1,5 +1,5 @@
 import "dotenv/config";
-import express, { type Response } from "express";
+import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 
@@ -13,29 +13,13 @@ import {
 } from "./tokens.js";
 import { loginSchema, registerSchema } from "./models/registerSchema.js";
 import { requireAuth } from "./authMiddleware.js";
-import {
-    buildEmailKey,
-    buildIpEmailKey,
-    buildIpKey,
-    clearLoginRateLimitKey,
-    getLoginLimitRules,
-    hitLoginRateLimit,
-} from "./loginRateLimit.js";
 
 const app = express();
-const loginLimitRules = getLoginLimitRules();
 
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
-function sendLoginRateLimited(res: Response, retryAfterSec: number) {
-    res.setHeader("Retry-After", String(retryAfterSec));
-    return res.status(429).json({
-        code: "LOGIN_RATE_LIMITED",
-        error: "Too many login attempts. Please try again later.",
-    });
-}
 
 app.get("/health", async (_req, res) => {
     const r = await pool.query("select 1 as ok");
@@ -147,66 +131,19 @@ app.post("/auth/login", async (req, res) => {
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
     const { email, password, orgId } = parsed.data;
-    const normalizedEmail = email.toLowerCase().trim();
-
-    const ip = req.ip ?? "unknown";
-    const ipKey = buildIpKey(ip) as string;
-    const ipEmailKey = buildIpEmailKey(ip, normalizedEmail) as string;
-    const emailKey = buildEmailKey(normalizedEmail) as string;
-
-    // Store one source hammering many accounts
-    const ipAttempt = await hitLoginRateLimit(ipKey, loginLimitRules.ip);
-    if (ipAttempt.limited) {
-        return sendLoginRateLimited(res, ipAttempt.retryAfterSec);
-    }
 
     const userResult = await pool.query(
         `SELECT id, email, password_hash, first_name, last_name
      FROM users
      WHERE email = $1`,
-        [normalizedEmail]
+        [email.toLowerCase()]
     );
 
     const user = userResult.rows[0];
-    // Store one account from one source hammering
-    if (!user) {
-        const [ipEmailAttempt, emailAttempt] = await Promise.all([
-            hitLoginRateLimit(ipEmailKey, loginLimitRules.ipEmail),
-            hitLoginRateLimit(emailKey, loginLimitRules.email),
-        ]);
-        if (ipEmailAttempt.limited || emailAttempt.limited) {
-            return sendLoginRateLimited(
-                res,
-                Math.max(ipEmailAttempt.retryAfterSec, emailAttempt.retryAfterSec)
-            );
-        }
-        return res.status(401).json({ error: "Invalid credentials" });
-    }
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
 
     const ok = await bcrypt.compare(password, user.password_hash);
-    if (!ok) {
-        const [ipEmailAttempt, emailAttempt] = await Promise.all([
-            hitLoginRateLimit(ipEmailKey, loginLimitRules.ipEmail),
-            hitLoginRateLimit(emailKey, loginLimitRules.email),
-        ]);
-        if (ipEmailAttempt.limited || emailAttempt.limited) {
-            return sendLoginRateLimited(
-                res,
-                Math.max(ipEmailAttempt.retryAfterSec, emailAttempt.retryAfterSec)
-            );
-        }
-        return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    try {
-        await Promise.all([
-            clearLoginRateLimitKey(ipEmailKey),
-            clearLoginRateLimitKey(emailKey),
-        ]);
-    } catch (e) {
-        // Failed cleanup should not block a valid login.
-        console.error(e);
-    }
+    if (!ok) return res.status(401).json({ error: "Invalid credentials" });
 
     const memberships = await pool.query(
         `SELECT m.org_id, m.role, o.name
@@ -256,94 +193,47 @@ app.post("/auth/login", async (req, res) => {
 
 app.post("/auth/refresh", async (req, res) => {
     const refreshToken = req.cookies?.refresh_token;
-    if (!refreshToken) return res.status(401).json({ code: "NO_REFRESH", error: "Missing refresh token" });
 
-    const currentTokenHash = hashToken(refreshToken);
-    const newRefreshToken = generateRefreshToken();
-    const newRefreshTokenHash = hashToken(newRefreshToken);
+    if (!refreshToken) return res.status(401).json({ code: "NO_REFRESH", error: "Missing refresh token" })
 
-    // 1) Atomic compare-and-swap:
-    // rotate only when the old hash still exists and is still valid.
-    // This prevents two parallel refresh requests from both succeeding.
-    const rotatedSession = await pool.query(
-        `UPDATE refresh_sessions
-         SET token_hash = $1
-         WHERE token_hash = $2
-           AND expires_at > now()
-         RETURNING user_id, org_id`,
-        [newRefreshTokenHash, currentTokenHash]
+    const tokenHash = hashToken(refreshToken)
+    const refresh_token_sess = await pool.query(
+        `SELECT user_id, org_id, expires_at
+         FROM refresh_sessions
+         WHERE token_hash = $1`,
+        [tokenHash]
     );
 
-    if (rotatedSession.rowCount === 0) {
-        // 2) Distinguish between expired token vs replay/invalid token.
-        // Replay after a successful rotation usually lands here as INVALID_REFRESH.
-        const existing = await pool.query(
-            `SELECT expires_at
-             FROM refresh_sessions
-             WHERE token_hash = $1`,
-            [currentTokenHash]
-        );
-        if (existing.rowCount === null) {
-            return res.status(401).json({
-                code: "INVALID_REFRESH",
-                error: "Invalid or replayed refresh token",
-            });
-        }
+    if (refresh_token_sess.rowCount === 0) return res.status(401).json({ code: "INVALID_REFRESH", error: "Invalid refresh token" })
 
-        if (existing.rowCount > 0 && new Date(existing.rows[0].expires_at) <= new Date()) {
-            await pool.query(`DELETE FROM refresh_sessions WHERE token_hash = $1`, [currentTokenHash]);
-            return res.status(401).json({ code: "REFRESH_EXPIRED", error: "Refresh token expired" });
-        }
+    const { user_id, org_id, expires_at } = refresh_token_sess.rows[0];
+    if (new Date(expires_at) <= new Date()) {
+        return res.status(401).json({ code: "REFRESH_EXPIRED", error: "Refresh token expired" });
 
-        return res.status(401).json({
-            code: "INVALID_REFRESH",
-            error: "Invalid or replayed refresh token",
-        });
     }
-
-    const { user_id, org_id } = rotatedSession.rows[0];
-
-    // 3) Validate membership after successful rotation.
-    // If membership is gone, revoke the rotated session immediately.
     const member = await pool.query(
         `SELECT role FROM memberships WHERE user_id = $1 AND org_id = $2`,
         [user_id, org_id]
     );
     if (member.rowCount === 0) {
-        await pool.query(`DELETE FROM refresh_sessions WHERE token_hash = $1`, [newRefreshTokenHash]);
+        await pool.query(`DELETE FROM refresh_sessions WHERE token_hash = $1`, [tokenHash]);
         return res.status(401).json({ code: "NO_MEMBERSHIP", error: "No longer a member of this org" });
     }
+    const memberRole = member.rows[0].role as string
+    const newRefreshToken = generateRefreshToken();
+    const newHashRefreshToken = hashToken(newRefreshToken);
+    await pool.query(
+        `UPDATE refresh_sessions
+         SET token_hash = $1
+         WHERE token_hash = $2`,
+        [newHashRefreshToken, tokenHash]
+    );
 
-    const memberRole = member.rows[0].role as string;
     const accessToken = signAccessToken({ sub: user_id, orgId: org_id, role: memberRole });
 
-    // 4) Issue new refresh cookie only after rotation succeeded.
     res.cookie("refresh_token", newRefreshToken, refreshCookieOptions());
     return res.json({ accessToken });
-});
-
-app.post("/auth/logout", async (req, res) => {
-    const refreshToken = req.cookies?.refresh_token as string | undefined;
-
-    if (refreshToken) {
-        try {
-            const tokenHash = hashToken(refreshToken);
-            await pool.query(`DELETE FROM refresh_sessions WHERE token_hash = $1`, [tokenHash]);
-        } catch (e) {
-            console.error(e);
-        }
-    }
-
-    const cookieOptions = refreshCookieOptions();
-    res.clearCookie("refresh_token", {
-        httpOnly: cookieOptions.httpOnly,
-        sameSite: cookieOptions.sameSite,
-        secure: cookieOptions.secure,
-        path: cookieOptions.path,
-    });
-
-    return res.json({ ok: true });
-});
+})
 
 
 app.get("/me", requireAuth, async (req: any, res) => {

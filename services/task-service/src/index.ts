@@ -4,7 +4,7 @@ import cors from "cors";
 import { pool } from "./db.js";
 import { requireAuth } from "./authMiddleware.js";
 import { requireMembership } from "./requireMembership.js";
-import { createTaskSchema, updateTaskSchema } from "./schema/task.js";
+import { batchDeletionTasksSchema, createTaskSchema, updateTaskSchema } from "./schema/task.js";
 
 import { createYoga } from "graphql-yoga";
 import { schema } from "./graphql/schema.js";
@@ -59,8 +59,6 @@ const yoga = createYoga({
       const map = new Map(r.rows.map((t: any) => [t.id, t]));
       return ids.map((id) => map.get(id) ?? null);
     });
-    console.log('userById: ', userById)
-    console.log('teamById: ', teamById)
 
     return { auth, loaders: { userById, teamById } };
   },
@@ -229,6 +227,66 @@ app.delete("/tasks/:id", async (req: any, res) => {
 
   await pool.query(`delete from tasks where id = $1 and org_id = $2`, [taskId, orgId]);
   res.status(204).send();
+});
+
+app.post("/tasks/delete-many", async (req: any, res) => {
+  const { sub: userId, orgId } = req.auth;
+  const role = req.member.role;
+  const isAdmin = ["OWNER", "ADMIN"].includes(role);
+
+  const parsed = batchDeletionTasksSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.flatten() });
+  }
+  const { taskIds } = parsed.data;
+
+  const existing = await pool.query(
+    `
+      select id, created_by
+      from tasks
+      where org_id = $1
+        and id = any($2::uuid[])
+    `,
+    [orgId, taskIds]
+  );
+
+  const foundIds = new Set(existing.rows.map((row: any) => row.id));
+  const missingIds = taskIds.filter((id: string) => !foundIds.has(id));
+
+  const forbiddenIds = isAdmin
+    ? []
+    : existing.rows
+      .filter((row: any) => row.created_by !== userId)
+      .map((row: any) => row.id);
+
+  const deletableIds = existing.rows
+    .filter((row: any) => isAdmin || row.created_by === userId)
+    .map((row: any) => row.id);
+
+  if (deletableIds.length === 0) {
+    return res.status(403).json({
+      error: "No tasks can be deleted",
+      missingIds,
+      forbiddenIds,
+    });
+  }
+
+  const deleted = await pool.query(
+    `
+      delete from tasks
+      where org_id = $1
+        and id = any($2::uuid[])
+      returning id
+    `,
+    [orgId, deletableIds]
+  );
+
+  res.json({
+    deletedCount: deleted.rowCount,
+    deletedIds: deleted.rows.map((row: any) => row.id),
+    missingIds,
+    forbiddenIds,
+  });
 });
 
 const port = Number(process.env.PORT ?? 4002);

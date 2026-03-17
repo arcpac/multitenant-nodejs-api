@@ -31,6 +31,7 @@ export function hashToken(token: string) {
 }
 
 export function refreshCookieOptions() {
+    console.log('refreshCookieOptions() called')
     const days = Number(process.env.REFRESH_TOKEN_TTL_DAYS ?? 14);
     return {
         httpOnly: true,

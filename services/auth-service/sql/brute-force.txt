@@ -1,0 +1,6 @@
+for i in {1..30}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST http://localhost:4001/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email":"anton@example.com","password":"wrongpass"}'
+done

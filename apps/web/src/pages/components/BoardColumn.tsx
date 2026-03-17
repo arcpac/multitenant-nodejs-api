@@ -1,5 +1,6 @@
 import { useDroppable } from "@dnd-kit/react";
 import TaskItem from "./TaskItem";
+import { Loading02 } from "@untitledui/icons";
 
 type BoardColumnTask = {
     id: string;
@@ -22,6 +23,7 @@ type BoardColumnProps = {
     tasks: BoardColumnTask[];
     editMode: boolean;
     selectedTaskIds: string[];
+    isLoading: boolean;
     onSelectTask: (taskId: string) => void;
     formatDueDate: (dueDate: string | null) => string | null;
 };
@@ -32,6 +34,7 @@ const BoardColumn = ({
     tasks,
     editMode,
     selectedTaskIds,
+    isLoading,
     onSelectTask,
     formatDueDate,
 }: BoardColumnProps) => {
@@ -62,11 +65,13 @@ const BoardColumn = ({
                         />
                     ))}
 
-                    {tasks.length === 0 && (
+                    {tasks.length === 0 && !isLoading ? (
                         <div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                             No tasks
                         </div>
-                    )}
+                    ) : isLoading && (<div className="rounded-2xl border border-dashed border-zinc-300 px-4 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                        <Loading02 className="inline-block h-8 w-8 animate-spin text-amber-600" />
+                    </div>)}
                 </div>
             </div>
         </div>

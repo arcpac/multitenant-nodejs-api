@@ -20,3 +20,6 @@ export const updateTaskSchema = z.object({
     status: Status.optional(),
 });
 
+export const batchDeletionTasksSchema = z.object({
+    taskIds: z.array(z.uuid()).min(1).max(20).transform((ids) => [...new Set(ids)])
+})

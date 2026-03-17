@@ -1,0 +1,21 @@
+
+curl -sS -D login.h -o login.json -c cookies.txt \
+  -X POST http://localhost:4001/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"anton@email.com","password":"Pass123!."}'
+
+(
+  code=$(curl -sS -D r1.h -o r1.json -w "%{http_code}" \
+    -b cookies.txt -c c1.txt -X POST http://localhost:4001/auth/refresh)
+  echo "$code" > r1.code
+) &
+(
+  code=$(curl -sS -D r2.h -o r2.json -w "%{http_code}" \
+    -b cookies.txt -c c2.txt -X POST http://localhost:4001/auth/refresh)
+  echo "$code" > r2.code
+) &
+wait
+
+echo "r1=$(cat r1.code) r2=$(cat r2.code)"
+echo "r1 body:"; cat r1.json; echo
+echo "r2 body:"; cat r2.json; echo

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { gqlFetch } from '../lib/graphql';
 import Header from './components/Header';
+import { Loading01 } from '@untitledui/icons';
 
 type DashboardTask = {
     id: string;
@@ -37,7 +38,7 @@ query Dashboard($teamId: ID) {
 `;
 
 const Dashboard = () => {
-    const { data: dashboardData } = useQuery({
+    const { data: dashboardData, isLoading } = useQuery({
         queryKey: ['dashboardData', { teamId: null }],
         queryFn: async () => {
             console.count('[Dashboard] queryFn executed');
@@ -62,29 +63,30 @@ const Dashboard = () => {
             <div className="mx-auto w-full max-w-6xl">
                 <Header
                 />
-
+                {isLoading ? "LOADING" : "NOT LOADING"}
                 <section className="mt-6 grid gap-4 text-zinc-900 sm:grid-cols-2 xl:grid-cols-4">
                     <article className="rounded-2xl border border-black bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">Total Tasks</p>
-                        <p className="mt-3 text-3xl font-semibold">{totalCount}</p>
+                        <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" />
+                            : totalCount}</p>
                         <p className="mt-2 text-xs text-emerald-600">+3 from yesterday</p>
                     </article>
 
                     <article className="rounded-2xl border bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">To Do</p>
-                        <p className="mt-3 text-3xl font-semibold">{todoCount}</p>
+                        <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" /> : todoCount}</p>
                         <p className="mt-2 text-xs text-zinc-500">Needs planning</p>
                     </article>
 
                     <article className="rounded-2xl border 0 bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">In Progress</p>
-                        <p className="mt-3 text-3xl font-semibold">{doingCount}</p>
+                        <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" /> : doingCount}</p>
                         <p className="mt-2 text-xs text-zinc-500">Needs planning</p>
                     </article>
 
                     <article className="rounded-2xl border 0 bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">Done</p>
-                        <p className="mt-3 text-3xl font-semibold">{doneCount}</p>
+                        <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" /> : doneCount}</p>
                         <p className="mt-2 text-xs text-emerald-600">25% completion rate</p>
                     </article>
                 </section>

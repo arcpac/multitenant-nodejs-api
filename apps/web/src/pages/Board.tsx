@@ -6,6 +6,8 @@ import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
 import { DragDropProvider } from "@dnd-kit/react";
+import { useModalStore } from "@/stores/modalStore";
+import DeleteTaskModal from "./components/Modals/DeleteTaskModal";
 
 type TaskStatus = "TODO" | "DOING" | "DONE";
 type BatchDeleteTasksResponse = {
@@ -84,8 +86,10 @@ const Board = () => {
     const queryClient = useQueryClient();
     const [selectedTasks, setSelectedTasks] = useState<string[]>([])
     const [editMode, setEditMode] = useState<boolean>(false);
+    const openModal = useModalStore((s) => s.open)
+    const closeModal = useModalStore((s) => s.close)
 
-    const { data: tasks = [] } = useQuery({
+    const { data: tasks = [], isLoading } = useQuery({
         queryKey: ["boardTasks", { teamId: null }],
         queryFn: async () => {
             const data = await gqlFetch<{ tasks: BoardTask[] }>(TASKS_QUERY, {
@@ -133,12 +137,14 @@ const Board = () => {
             await queryClient.invalidateQueries({ queryKey: ["dashboardData"] });
 
             if (result.forbiddenIds.length > 0 || result.missingIds.length > 0) {
+                closeModal();
                 toast.warning(
                     `Deleted ${result.deletedCount} tasks. Some could not be removed.`
                 );
                 return;
             }
 
+            closeModal();
             toast.success(`Deleted ${result.deletedCount} task${result.deletedCount === 1 ? "" : "s"}`);
         },
         onError: (error) => {
@@ -208,15 +214,24 @@ const Board = () => {
     const handleDeleteTasks = () => {
         if (selectedTasks.length === 0 || deleteTasksMutation.isPending) return;
 
-        debugger
-        deleteTasksMutation.mutate(selectedTasks);
+        openModal({ type: "delete-tasks", taskIds: selectedTasks });
+    };
+
+    const handleConfirmDeleteTasks = (taskIds: string[]) => {
+        if (taskIds.length === 0 || deleteTasksMutation.isPending) return;
+
+        deleteTasksMutation.mutate(taskIds);
     };
 
     return (
-        <div className="min-h-screen bg-amber-50 py-6 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 sm:px-6 lg:px-8">
+        <div className="min-h-screen bg-amber-50 py-6 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 sm:px-6 lg:px-8 ">
             <div className="flex flex-col gap-6">
                 <Header />
-                <section className="mx-auto flex w-full max-w-6xl flex-col bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70">
+                <DeleteTaskModal
+                    isPending={deleteTasksMutation.isPending}
+                    onConfirm={handleConfirmDeleteTasks}
+                />
+                <section className="mx-auto flex w-full max-w-6xl flex-col bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70 rounded-2xl border border-black">
                     <div className="flex items-center justify-between">
                         <h2 className="text-base font-semibold">Board</h2>
                         <div>
@@ -249,13 +264,13 @@ const Board = () => {
                     >
                         <div className="mt-4 grid flex-1 gap-4 md:grid-cols-3">
                             {COLUMN_ORDER.map((status) => {
-                                console.log('tasksByStatus[status]: ', tasksByStatus[status])
                                 return (
                                     <BoardColumn
                                         key={status}
                                         columnId={status}
                                         label={COLUMN_LABELS[status]}
                                         tasks={tasksByStatus[status]}
+                                        isLoading={isLoading}
                                         editMode={editMode}
                                         selectedTaskIds={selectedTasks}
                                         onSelectTask={handleSelectTask}
@@ -263,7 +278,6 @@ const Board = () => {
                                     />
                                 )
                             }
-
                             )
                             }
                         </div>

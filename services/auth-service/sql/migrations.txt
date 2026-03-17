@@ -1,0 +1,10 @@
+cat > services/auth-service/sql/migrations/20260310_create_table_login_rate_limits.sql
+
+psql -h localhost -p 5432 -U antoniocaballes -d teamboard -f services/auth-service/sql/migrations/20260310_create_table_login_rate_limits.sql
+
+psql -h localhost -p 5433 -U teamboard -d teamboard -f services/auth-service/sql/migrations/20260310_create_table_login_rate_limits.sql
+
+
+test
+
+psql -h localhost -p 5433 -U teamboard -d teamboard -c "SELECT to_regclass('public.login_rate_limits');"
