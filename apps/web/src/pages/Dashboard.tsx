@@ -63,7 +63,6 @@ const Dashboard = () => {
             <div className="mx-auto w-full max-w-6xl">
                 <Header
                 />
-                {isLoading ? "LOADING" : "NOT LOADING"}
                 <section className="mt-6 grid gap-4 text-zinc-900 sm:grid-cols-2 xl:grid-cols-4">
                     <article className="rounded-2xl border border-black bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">Total Tasks</p>

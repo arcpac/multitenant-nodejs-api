@@ -24,27 +24,31 @@ I implemented a clean refresh-token flow that supports **silent re-authenticatio
 #### Advantages
 
 - 🔒 **Short-lived access tokens** reduce the risk of token leakage
-- 🍪 **Refresh token stored in HttpOnly cookie** (harder to steal via XSS)
-- 🔁 **Silent refresh** improves UX (auto-renew access token when expired)
-- 🧱 Clear separation of responsibility: access token = API access, refresh token = session continuation
+- ✅ **Refresh token stored in HttpOnly cookie** (harder to steal via XSS)
+- ✅ **Silent refresh** improves UX (auto-renew access token when expired)
+- ✅ Clear separation of responsibility: access token = API access, refresh token = session continuation
 - ✅ Works well with protected routes + automatic retry on `401 Unauthorized`
 
 #### Current endpoints
 
+REST auth/session endpoints:
+
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/refresh`
-- `GET /me` (protected)
 
-#### Upcoming features
+GraphQL API:
 
-- 🏢 Organisations + Teams CRUD
-- ✅ Task CRUD (create/update/delete)
-- 👤 Single assignee per task
-- 🔐 Role-based access control (Owner/Admin/Member)
-- 🧪 Test suite (unit + integration)
-- 📄 API docs (Swagger/OpenAPI)
-- 🚦 Rate limiting + brute-force protection for auth routes
+- `POST /graphql`
+  I use a single GraphQL endpoint, `POST /graphql`, because GraphQL exposes a schema rather than a separate REST URL for every resource or use case. Check this: [A Practical Hybrid API: REST + GraphQL in Node Microservices](https://antonraphaelcaballes.medium.com/a-practical-hybrid-api-split-rest-graphql-in-node-microservices-trello-like-task-dashboard-684d1e993eaf)
+
+Current GraphQL queries:
+
+- `me` (protected)
+- `dashboard(filter: TaskFilter)`
+- `tasks(filter: TaskFilter)`
+- `taskCounts(filter: TaskFilter)`
+- `teams`
 
 ---
 

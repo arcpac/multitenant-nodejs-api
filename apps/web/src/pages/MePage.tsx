@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../stores/authStore";
 import { useMe } from "../hooks/useMe";
+import { Loading02 } from "@untitledui/icons";
 
 function rolePillClass(role: string) {
   if (role === "OWNER") return "border-amber-300/40 bg-amber-500/20 text-amber-300";
@@ -35,7 +36,14 @@ const MePage = () => {
   if (isLoading && !me) {
     return (
       <div className="min-h-screen grid place-items-center bg-amber-50 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
-        <div className="text-sm text-zinc-500">Loading...</div>
+
+        <div className="flex text-sm text-zinc-500 mx-auto">
+          <Loading02 className="inline-block h-8 w-8 animate-spin text-amber-600" />
+          <div>
+
+            Loading...
+          </div>
+        </div>
       </div>
     );
   }
