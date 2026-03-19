@@ -6,13 +6,25 @@ let refreshInFlight: Promise<string | null> | null = null;
 const rawAuthBaseUrl =
     (import.meta.env as Record<string, string | undefined>).VITE_AUTH_BASE_URL ?? "";
 const authBaseUrl = rawAuthBaseUrl.replace(/\/+$/, "");
+const rawTaskBaseUrl =
+    (import.meta.env as Record<string, string | undefined>).VITE_TASK_BASE_URL ?? "";
+const taskBaseUrl = rawTaskBaseUrl.replace(/\/+$/, "");
 
-function toAuthServiceUrl(input: string): string {
-    if (!authBaseUrl) return input;
+function toServiceUrl(input: string): string {
     if (/^https?:\/\//i.test(input)) return input;
-    if (input.startsWith("/auth/") || input === "/auth") return `${authBaseUrl}${input}`;
-    if (input.startsWith("/api/")) return `${authBaseUrl}${input.replace(/^\/api/, "")}`;
-    if (input === "/api") return authBaseUrl;
+
+    if (authBaseUrl) {
+        if (input.startsWith("/auth/") || input === "/auth") return `${authBaseUrl}${input}`;
+        if (input.startsWith("/api/")) return `${authBaseUrl}${input.replace(/^\/api/, "")}`;
+        if (input === "/api") return authBaseUrl;
+    }
+
+    if (taskBaseUrl) {
+        if (input.startsWith("/tasks/") || input === "/tasks") return `${taskBaseUrl}${input}`;
+        if (input.startsWith("/graphql")) return `${taskBaseUrl}${input}`;
+        if (input.startsWith("/ai/") || input === "/ai") return `${taskBaseUrl}${input}`;
+    }
+
     return input;
 }
 
@@ -24,7 +36,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     if (refreshInFlight) return refreshInFlight;
 
     refreshInFlight = (async () => {
-        const res = await fetch(toAuthServiceUrl("/auth/refresh"), {
+        const res = await fetch(toServiceUrl("/auth/refresh"), {
             method: "POST",
             credentials: "include",
         });
@@ -46,7 +58,7 @@ export async function refreshAccessToken(): Promise<string | null> {
 }
 
 export async function logoutSession(): Promise<void> {
-    const requestInput = toAuthServiceUrl("/auth/logout");
+    const requestInput = toServiceUrl("/auth/logout");
     await fetch(requestInput, {
         method: "POST",
         credentials: "include",
@@ -62,7 +74,7 @@ export async function apiFetch<T = Json>(
     if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
     headers.set("Content-Type", "application/json");
 
-    const requestInput = typeof input === "string" ? toAuthServiceUrl(input) : input;
+    const requestInput = typeof input === "string" ? toServiceUrl(input) : input;
     const res = await fetch(requestInput, {
         ...init,
         headers,

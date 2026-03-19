@@ -23,3 +23,11 @@ export const updateTaskSchema = z.object({
 export const batchDeletionTasksSchema = z.object({
     taskIds: z.array(z.uuid()).min(1).max(20).transform((ids) => [...new Set(ids)])
 })
+
+export const aiTaskPlanRequestSchema = z.object({
+    goal: z.string().trim().min(3).max(500),
+});
+
+export const createManyTasksSchema = z.object({
+    tasks: z.array(createTaskSchema).min(1).max(20),
+});

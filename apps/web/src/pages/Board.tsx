@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useModalStore } from "@/stores/modalStore";
 import DeleteTaskModal from "./components/Modals/DeleteTaskModal";
+import AITaskPlanModal, { type AITaskDraft } from "./components/Modals/AiTaskPlanModal";
 
 type TaskStatus = "TODO" | "DOING" | "DONE";
 type BatchDeleteTasksResponse = {
@@ -21,9 +22,22 @@ type UpdateTaskResponse = {
     task: BoardTask;
 };
 
+type CreateManyTasksResponse = {
+    tasks: Array<{
+        id: string;
+    }>;
+};
+
 type UpdateTaskStatusInput = {
     taskId: string;
     status: TaskStatus;
+};
+
+type AITaskPlanResponse = {
+    tasks: Array<{
+        title: string;
+        description: string | null;
+    }>;
 };
 
 const boardTasksQueryKey = ["boardTasks", { teamId: null }] as const;
@@ -86,6 +100,9 @@ const Board = () => {
     const queryClient = useQueryClient();
     const [selectedTasks, setSelectedTasks] = useState<string[]>([])
     const [editMode, setEditMode] = useState<boolean>(false);
+    const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+    const [aiGoal, setAiGoal] = useState("");
+    const [draftTasks, setDraftTasks] = useState<AITaskDraft[]>([]);
     const openModal = useModalStore((s) => s.open)
     const closeModal = useModalStore((s) => s.close)
 
@@ -149,6 +166,53 @@ const Board = () => {
         },
         onError: (error) => {
             toast.error(error instanceof Error ? error.message : "Failed to delete tasks");
+        },
+    });
+
+    const aiTaskPlanMutation = useMutation({
+        mutationFn: async (goal: string) => {
+            debugger
+            const plan = await apiFetch<AITaskPlanResponse>("/ai/task-plan", {
+                method: "POST",
+                body: JSON.stringify({ goal }),
+            });
+            console.log('plan: ', plan)
+            return plan.tasks.map((task) => ({
+                title: task.title,
+                description: task.description ?? "",
+            }));
+        },
+        onSuccess: (tasks) => {
+            setDraftTasks(tasks);
+        },
+        onError: (error) => {
+            toast.error(error instanceof Error ? error.message : "Failed to generate AI tasks");
+        },
+    });
+
+    const createAiTasksMutation = useMutation({
+        mutationFn: (tasks: AITaskDraft[]) =>
+            apiFetch<CreateManyTasksResponse>("/tasks/bulk", {
+                method: "POST",
+                body: JSON.stringify({
+                    tasks: tasks.map((task) => ({
+                        title: task.title.trim(),
+                        description: task.description.trim() || undefined,
+                        visibility: "ORG_VISIBLE",
+                        status: "TODO",
+                    })),
+                }),
+            }),
+        onSuccess: async (result) => {
+            await queryClient.invalidateQueries({ queryKey: boardTasksQueryKey });
+            await queryClient.invalidateQueries({ queryKey: ["dashboardData"] });
+            setDraftTasks([]);
+            setAiGoal("");
+            setIsAiModalOpen(false);
+            toast.success(`Created ${result.tasks.length} AI task${result.tasks.length === 1 ? "" : "s"}`);
+        },
+        onError: (error) => {
+            toast.error(error instanceof Error ? error.message : "Failed to save AI tasks");
         },
     });
 
@@ -223,6 +287,51 @@ const Board = () => {
         deleteTasksMutation.mutate(taskIds);
     };
 
+    const handleGenerateAiTasks = () => {
+        setIsAiModalOpen(true);
+    };
+
+    const handleCloseAiModal = () => {
+        if (aiTaskPlanMutation.isPending || createAiTasksMutation.isPending) return;
+        setIsAiModalOpen(false);
+        setAiGoal("");
+        setDraftTasks([]);
+    };
+
+    const handleGenerateDraft = () => {
+        if (aiTaskPlanMutation.isPending || createAiTasksMutation.isPending) return;
+
+        const trimmedGoal = aiGoal.trim();
+        if (!trimmedGoal) return;
+
+        aiTaskPlanMutation.mutate(trimmedGoal);
+    };
+
+    const handleTaskDraftChange = (index: number, field: keyof AITaskDraft, value: string) => {
+        setDraftTasks((current) =>
+            current.map((task, taskIndex) =>
+                taskIndex === index ? { ...task, [field]: value } : task
+            )
+        );
+    };
+
+    const handleRemoveDraftTask = (index: number) => {
+        setDraftTasks((current) => current.filter((_, taskIndex) => taskIndex !== index));
+    };
+
+    const handleSaveAiTasks = () => {
+        const cleanedTasks = draftTasks
+            .map((task) => ({
+                title: task.title.trim(),
+                description: task.description.trim(),
+            }))
+            .filter((task) => task.title.length > 0);
+
+        if (cleanedTasks.length === 0 || createAiTasksMutation.isPending) return;
+
+        createAiTasksMutation.mutate(cleanedTasks);
+    };
+
     return (
         <div className="min-h-screen bg-amber-50 py-6 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 sm:px-6 lg:px-8 ">
             <div className="flex flex-col gap-6">
@@ -231,26 +340,49 @@ const Board = () => {
                     isPending={deleteTasksMutation.isPending}
                     onConfirm={handleConfirmDeleteTasks}
                 />
+                <AITaskPlanModal
+                    isOpen={isAiModalOpen}
+                    goal={aiGoal}
+                    tasks={draftTasks}
+                    isPlanning={aiTaskPlanMutation.isPending}
+                    isSaving={createAiTasksMutation.isPending}
+                    onClose={handleCloseAiModal}
+                    onGoalChange={setAiGoal}
+                    onGenerate={handleGenerateDraft}
+                    onTaskChange={handleTaskDraftChange}
+                    onRemoveTask={handleRemoveDraftTask}
+                    onSave={handleSaveAiTasks}
+                />
                 <section className="mx-auto flex w-full max-w-6xl flex-col bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70 rounded-2xl border border-black">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                         <h2 className="text-base font-semibold">Board</h2>
-                        <div>
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400">
-                                {tasks.length} tasks
-                            </span>
-                            <span className="text-sm text-zinc-500 dark:text-zinc-400 px-1 underline" onClick={() => toggleEditMode()}>
-                                Edit tasks
-                            </span>
-                            {selectedTasks.length > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={handleDeleteTasks}
-                                    disabled={deleteTasksMutation.isPending}
-                                    className="px-1 text-sm text-red-500 underline disabled:opacity-50"
-                                >
-                                    {deleteTasksMutation.isPending ? "Deleting..." : `Delete (${selectedTasks.length})`}
-                                </button>
-                            )}
+                        <div className="flex items-center gap-3">
+                            <div>
+                                <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                                    {tasks.length} tasks
+                                </span>
+                                <span className="text-sm text-zinc-500 dark:text-zinc-400 px-1 underline" onClick={() => toggleEditMode()}>
+                                    Edit tasks
+                                </span>
+                                {selectedTasks.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={handleDeleteTasks}
+                                        disabled={deleteTasksMutation.isPending}
+                                        className="px-1 text-sm text-red-500 underline disabled:opacity-50"
+                                    >
+                                        {deleteTasksMutation.isPending ? "Deleting..." : `Delete (${selectedTasks.length})`}
+                                    </button>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={handleGenerateAiTasks}
+                                disabled={aiTaskPlanMutation.isPending}
+                                className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {aiTaskPlanMutation.isPending ? "Planning..." : "AI Plan"}
+                            </button>
                         </div>
                     </div>
                     <DragDropProvider
@@ -277,9 +409,7 @@ const Board = () => {
                                         formatDueDate={formatDueDate}
                                     />
                                 )
-                            }
-                            )
-                            }
+                            })}
                         </div>
                     </DragDropProvider>
                 </section>

@@ -18,6 +18,7 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
+      "/ai": { target: "http://127.0.0.1:4002", changeOrigin: true },
       "/tasks": { target: "http://127.0.0.1:4002", changeOrigin: true },
       "/graphql": { target: "http://127.0.0.1:4002", changeOrigin: true },
     },

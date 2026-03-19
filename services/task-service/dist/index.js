@@ -4,12 +4,13 @@ import cors from "cors";
 import { pool } from "./db.js";
 import { requireAuth } from "./authMiddleware.js";
 import { requireMembership } from "./requireMembership.js";
-import { createTaskSchema, updateTaskSchema } from "./schema/task.js";
+import { aiTaskPlanRequestSchema, batchDeletionTasksSchema, createManyTasksSchema, createTaskSchema, updateTaskSchema } from "./schema/task.js";
 import { createYoga } from "graphql-yoga";
 import { schema } from "./graphql/schema.js";
 import { getAuthFromAuthorizationHeader } from "./auth.js";
 import DataLoader from "dataloader";
 import { GraphQLError } from "graphql";
+import { generateTaskPlan } from "./ai/generateTaskPlan.js";
 const app = express();
 app.use(cors({ origin: true }));
 const yoga = createYoga({
@@ -43,8 +44,6 @@ const yoga = createYoga({
             const map = new Map(r.rows.map((t) => [t.id, t]));
             return ids.map((id) => map.get(id) ?? null);
         });
-        console.log('userById: ', userById);
-        console.log('teamById: ', teamById);
         return { auth, loaders: { userById, teamById } };
     },
 });
@@ -76,6 +75,22 @@ app.get("/members", async (req, res) => {
     `, [orgId]);
     res.json({ members: r.rows });
 });
+app.post("/ai/task-plan", async (req, res) => {
+    console.log("asfdsfdsdfsd");
+    const parsed = aiTaskPlanRequestSchema.safeParse(req.body);
+    console.log('parsed: ', parsed);
+    if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    try {
+        const plan = await generateTaskPlan(parsed.data.goal);
+        res.json(plan);
+    }
+    catch (error) {
+        console.error("[ai/task-plan]", error);
+        res.status(500).json({ error: "Failed to generate task plan" });
+    }
+});
 app.post("/tasks", async (req, res) => {
     const { sub: userId, orgId } = req.auth;
     const parsed = createTaskSchema.safeParse(req.body);
@@ -101,6 +116,53 @@ app.post("/tasks", async (req, res) => {
       returning *
       `, [orgId, teamId ?? null, userId, assignedToUserId ?? null, visibility, status, title, description ?? null]);
     res.status(201).json({ task: r.rows[0] });
+});
+app.post("/tasks/bulk", async (req, res) => {
+    const { sub: userId, orgId } = req.auth;
+    const parsed = createManyTasksSchema.safeParse(req.body);
+    if (!parsed.success)
+        return res.status(400).json({ error: parsed.error.flatten() });
+    const client = await pool.connect();
+    const createdTasks = [];
+    try {
+        await client.query("begin");
+        for (const taskInput of parsed.data.tasks) {
+            const { title, description, teamId, assignedToUserId, visibility, status } = taskInput;
+            if (visibility === "TEAM_ONLY" && !teamId) {
+                await client.query("rollback");
+                return res.status(400).json({ error: "TEAM_ONLY tasks must include teamId" });
+            }
+            if (teamId) {
+                const t = await client.query(`select 1 from teams where id = $1 and org_id = $2`, [teamId, orgId]);
+                if (t.rowCount === 0) {
+                    await client.query("rollback");
+                    return res.status(400).json({ error: "Invalid teamId for this org" });
+                }
+            }
+            if (assignedToUserId) {
+                const a = await client.query(`select 1 from memberships where user_id = $1 and org_id = $2`, [assignedToUserId, orgId]);
+                if (a.rowCount === 0) {
+                    await client.query("rollback");
+                    return res.status(400).json({ error: "Assignee is not in this org" });
+                }
+            }
+            const r = await client.query(`
+          insert into tasks (org_id, team_id, created_by, assigned_to_user_id, visibility, status, title, description)
+          values ($1,$2,$3,$4,$5,$6,$7,$8)
+          returning *
+        `, [orgId, teamId ?? null, userId, assignedToUserId ?? null, visibility, status, title, description ?? null]);
+            createdTasks.push(r.rows[0]);
+        }
+        await client.query("commit");
+        res.status(201).json({ tasks: createdTasks });
+    }
+    catch (error) {
+        await client.query("rollback");
+        throw error;
+    }
+    finally {
+        client.release();
+    }
 });
 app.patch("/tasks/:id", async (req, res) => {
     const { sub: userId, orgId } = req.auth;
@@ -180,6 +242,51 @@ app.delete("/tasks/:id", async (req, res) => {
         return res.status(403).json({ error: "Forbidden" });
     await pool.query(`delete from tasks where id = $1 and org_id = $2`, [taskId, orgId]);
     res.status(204).send();
+});
+app.post("/tasks/delete-many", async (req, res) => {
+    const { sub: userId, orgId } = req.auth;
+    const role = req.member.role;
+    const isAdmin = ["OWNER", "ADMIN"].includes(role);
+    const parsed = batchDeletionTasksSchema.safeParse(req.body);
+    if (!parsed.success) {
+        return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    const { taskIds } = parsed.data;
+    const existing = await pool.query(`
+      select id, created_by
+      from tasks
+      where org_id = $1
+        and id = any($2::uuid[])
+    `, [orgId, taskIds]);
+    const foundIds = new Set(existing.rows.map((row) => row.id));
+    const missingIds = taskIds.filter((id) => !foundIds.has(id));
+    const forbiddenIds = isAdmin
+        ? []
+        : existing.rows
+            .filter((row) => row.created_by !== userId)
+            .map((row) => row.id);
+    const deletableIds = existing.rows
+        .filter((row) => isAdmin || row.created_by === userId)
+        .map((row) => row.id);
+    if (deletableIds.length === 0) {
+        return res.status(403).json({
+            error: "No tasks can be deleted",
+            missingIds,
+            forbiddenIds,
+        });
+    }
+    const deleted = await pool.query(`
+      delete from tasks
+      where org_id = $1
+        and id = any($2::uuid[])
+      returning id
+    `, [orgId, deletableIds]);
+    res.json({
+        deletedCount: deleted.rowCount,
+        deletedIds: deleted.rows.map((row) => row.id),
+        missingIds,
+        forbiddenIds,
+    });
 });
 const port = Number(process.env.PORT ?? 4002);
 app.listen(port, () => console.log(`[task-service] listening on :${port}`));
