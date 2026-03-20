@@ -6,10 +6,14 @@
     "packages/*"
   ],
   "scripts": {
+    "db:up": "docker compose -f infra/docker-compose.yml up -d",
     "dev:auth": "npm -w @teamboard/auth-service run dev",
     "dev:tasks": "npm -w @teamboard/task-service run dev",
     "dev:realtime": "npm -w @teamboard/realtime-service run dev",
-    "dev": "npm -ws run dev"
+    "dev": "npm -ws run dev",
+    "migrate:auth": "sh -c 'for f in services/auth-service/sql/migrations/*.sql; do docker exec -i teamboard-postgres psql -U teamboard -d teamboard -f - < \"$f\"; done'",
+    "migrate:tasks": "sh -c 'for f in services/task-service/sql/migrations/*.sql; do docker exec -i teamboard-postgres psql -U teamboard -d teamboard -f - < \"$f\"; done'",
+    "migrate": "npm run migrate:tasks && npm run migrate:auth"
   },
   "devDependencies": {
     "@types/node": "^25.3.1",

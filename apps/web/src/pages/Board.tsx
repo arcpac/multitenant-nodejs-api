@@ -333,8 +333,8 @@ const Board = () => {
     };
 
     return (
-        <div className="min-h-screen bg-amber-50 py-6 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 sm:px-6 lg:px-8 ">
-            <div className="flex flex-col gap-6">
+        <div className="min-h-screen bg-amber-50 pb-6 text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100 ">
+            <div className="flex flex-col">
                 <Header />
                 <DeleteTaskModal
                     isPending={deleteTasksMutation.isPending}
@@ -353,7 +353,7 @@ const Board = () => {
                     onRemoveTask={handleRemoveDraftTask}
                     onSave={handleSaveAiTasks}
                 />
-                <section className="mx-auto flex w-full max-w-6xl flex-col bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70 rounded-2xl border border-black">
+                <section className="mx-auto flex w-full max-w-6xl flex-col bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/70 rounded-b-md border-l border-r border-b border-black">
                     <div className="flex items-center justify-between gap-4">
                         <h2 className="text-base font-semibold">Board</h2>
                         <div className="flex items-center gap-3">

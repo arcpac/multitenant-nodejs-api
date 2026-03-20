@@ -64,26 +64,26 @@ const Dashboard = () => {
                 <Header
                 />
                 <section className="mt-6 grid gap-4 text-zinc-900 sm:grid-cols-2 xl:grid-cols-4">
-                    <article className="rounded-2xl border border-black bg-white p-4 shadow-sm">
+                    <article className="rounded-md border border-black bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">Total Tasks</p>
                         <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" />
                             : totalCount}</p>
                         <p className="mt-2 text-xs text-emerald-600">+3 from yesterday</p>
                     </article>
 
-                    <article className="rounded-2xl border bg-white p-4 shadow-sm">
+                    <article className="rounded-md border bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">To Do</p>
                         <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" /> : todoCount}</p>
                         <p className="mt-2 text-xs text-zinc-500">Needs planning</p>
                     </article>
 
-                    <article className="rounded-2xl border 0 bg-white p-4 shadow-sm">
+                    <article className="rounded-md border 0 bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">In Progress</p>
                         <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" /> : doingCount}</p>
                         <p className="mt-2 text-xs text-zinc-500">Needs planning</p>
                     </article>
 
-                    <article className="rounded-2xl border 0 bg-white p-4 shadow-sm">
+                    <article className="rounded-md border 0 bg-white p-4 shadow-sm">
                         <p className="text-xs uppercase tracking-wide">Done</p>
                         <p className="mt-3 text-3xl font-semibold">{isLoading ? <Loading01 className="inline-block h-8 w-8 animate-spin text-amber-600" /> : doneCount}</p>
                         <p className="mt-2 text-xs text-emerald-600">25% completion rate</p>
@@ -91,7 +91,7 @@ const Dashboard = () => {
                 </section>
 
                 <section className="mt-6 grid gap-4 text-zinc-900 lg:grid-cols-3">
-                    <article className="rounded-2xl border 0 bg-white p-5 shadow-sm lg:col-span-2">
+                    <article className="rounded-md border 0 bg-white p-5 shadow-sm lg:col-span-2">
                         <div className="flex items-center justify-between">
                             <h2 className="text-base font-semibold">Priority Tasks</h2>
                             <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-900">
@@ -132,7 +132,7 @@ const Dashboard = () => {
                         </div>
                     </article>
 
-                    <article className="rounded-2xl border 0 bg-white p-5 shadow-sm">
+                    <article className="rounded-md border 0 bg-white p-5 shadow-sm">
                         <h2 className="text-base font-semibold">Team Pulse</h2>
                         <p className="mt-1 text-sm text-zinc-600">Current sprint health</p>
 
@@ -171,7 +171,7 @@ const Dashboard = () => {
                 </section>
 
                 <section className="mt-6 grid gap-4 text-zinc-900 lg:grid-cols-2">
-                    <article className="rounded-2xl border 0 bg-white p-5 shadow-sm">
+                    <article className="rounded-md border 0 bg-white p-5 shadow-sm">
                         <h2 className="text-base font-semibold">Status Breakdown</h2>
                         <div className="mt-4 space-y-3 text-sm">
                             <div className="flex items-center justify-between rounded-lg border 0 bg-amber-50 px-3 py-2">
@@ -189,7 +189,7 @@ const Dashboard = () => {
                         </div>
                     </article>
 
-                    <article className="rounded-2xl border 0 bg-white p-5 shadow-sm">
+                    <article className="rounded-md border 0 bg-white p-5 shadow-sm">
                         <h2 className="text-base font-semibold">Recent Activity</h2>
                         <div className="mt-4 space-y-3">
                             <div className="rounded-lg border 0 bg-amber-50 px-3 py-2">

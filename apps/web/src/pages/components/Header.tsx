@@ -92,7 +92,7 @@ const Header = () => {
 
     return (
         <>
-            <section className="relative overflow-hidden bg-amber-50 p-6 dark:bg-zinc-950">
+            <section className="relative overflow-hidden bg-white p-6 dark:bg-zinc-950 border-b border-[#dcdbe0]">
                 <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.12),transparent_45%)]" />
                 <div className="relative flex flex-col gap-4 text-[#1a1a29] dark:text-zinc-400 md:flex-row md:items-end md:justify-between">
                     <div>
@@ -163,7 +163,7 @@ const Header = () => {
                 <Modal className="w-full max-w-xl">
                     <Dialog
                         aria-label="Create a new task"
-                        className="flex flex-col w-full p-5 overflow-hidden rounded-2xl border bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+                        className="flex flex-col w-full p-5 overflow-hidden rounded-md border border-black bg-white shadow-2xl"
                     >
                         {/* form header */}
                         <div className="w-full border-zinc-200 dark:border-zinc-800">
